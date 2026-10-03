@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SOLAR VISION • TVA Telemetry Terminal</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Outfit:wght@400;600;800&display=swap');
+
+    :root {
+      --tva-orange: #ff9d00;
+      --tva-orange-glow: rgba(255, 157, 0, 0.4);
+      --tva-amber-bg: #140a00;
+      --tva-panel-bg: rgba(26, 15, 3, 0.85);
+      --tva-green: #00ff66;
+      --tva-border: #804e00;
+      --tva-border-bright: #ff9d00;
+      --text-main: #ffca80;
+      --text-dim: #a37538;
+      --font-mono: 'Share Tech Mono', monospace;
+      --font-sans: 'Outfit', sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    
+    body {
+      background: radial-gradient(circle at center, #1f1000, var(--tva-amber-bg));
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      padding: 20px;
+      min-height: 100vh;
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    /* Effect CRT Scanline */
+    body::before {
+      content: " ";
+      display: block;
+      position: fixed;
+      top: 0; left: 0; bottom: 0; right: 0;
+      background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
+      z-index: 999;
+      background-size: 100% 3px, 6px 10px;
+      pointer-events: none;
+    }
+
+    /* Header TVA Terminal */
+    .header {
+      text-align: center;
+      margin-bottom: 25px;
+      border-bottom: 2px solid var(--tva-border-bright);
+      padding-bottom: 15px;
+      position: relative;
+    }
+    .header h1 {
+      font-family: var(--font-mono);
+      font-size: 2.8rem;
+      color: var(--tva-orange);
+      text-transform: uppercase;
+      letter-spacing: 6px;
+      text-shadow: 0 0 12px var(--tva-orange-glow);
+    }
+    .header p {
+      font-family: var(--font-mono);
+      color: var(--text-dim);
+      font-size: 0.9rem;
+      letter-spacing: 2px;
+      margin-top: 4px;
+    }
+    .tva-badge {
+      display: inline-block;
+      background: var(--tva-orange);
+      color: #000;
+      font-family: var(--font-mono);
+      font-weight: bold;
+      font-size: 0.75rem;
+      padding: 2px 8px;
+      border-radius: 2px;
+      letter-spacing: 1px;
+      margin-bottom: 5px;
+    }
+
+    /* Panel Kontrol Variance */
+    .control-panel {
+      background: var(--tva-panel-bg);
+      border: 1px solid var(--tva-border-bright);
+      padding: 15px 20px;
+      border-radius: 4px;
+      margin-bottom: 25px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 15px;
+      box-shadow: 0 0 15px rgba(255, 157, 0, 0.15);
+    }
+    .control-panel label {
+      font-family: var(--font-mono);
+      font-weight: 600;
+      color: var(--tva-orange);
+      letter-spacing: 1px;
+    }
+    .select-box {
+      background: #000;
+      color: var(--tva-orange);
+      border: 1px solid var(--tva-border-bright);
+      font-family: var(--font-mono);
+      padding: 8px 15px;
+      border-radius: 2px;
+      outline: none;
+      cursor: pointer;
+      font-weight: bold;
+    }
+
+    /* Grid Metrik Analog Gauges */
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 15px;
+      margin-bottom: 25px;
+    }
+    .card {
+      background: var(--tva-panel-bg);
+      border: 1px solid var(--tva-border);
+      border-left: 4px solid var(--tva-orange);
+      border-radius: 2px;
+      padding: 18px;
+      text-align: center;
+      position: relative;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+      transition: border-color 0.3s ease;
+    }
+    .card:hover { border-color: var(--tva-orange); }
+    .card h3 {
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 2px;
+    }
+    .card .value {
+      font-family: var(--font-mono);
+      font-size: 2rem;
+      font-weight: bold;
+      margin: 8px 0;
+      color: var(--tva-orange);
+      text-shadow: 0 0 8px var(--tva-orange-glow);
+    }
+    .card .unit {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--text-dim);
+    }
+
+    /* Section Grafik Terminal */
+    .charts-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+    .chart-box {
+      background: var(--tva-panel-bg);
+      border: 1px solid var(--tva-border);
+      border-radius: 2px;
+      padding: 20px;
+      height: 320px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+    }
+
+    /* Tabel Log Timeline */
+    .table-container {
+      background: var(--tva-panel-bg);
+      border: 1px solid var(--tva-border);
+      border-radius: 2px;
+      padding: 20px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+      overflow-x: auto;
+    }
+    .table-title {
+      font-family: var(--font-mono);
+      font-size: 1.1rem;
+      color: var(--tva-orange);
+      margin-bottom: 15px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .table-title span { font-size: 0.8rem; color: var(--text-dim); }
+    
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+    }
+    th {
+      background: rgba(255, 157, 0, 0.1);
+      color: var(--tva-orange);
+      padding: 12px 15px;
+      border-bottom: 2px solid var(--tva-border-bright);
+      white-space: nowrap;
+      letter-spacing: 1px;
+    }
+    td {
+      padding: 10px 15px;
+      border-bottom: 1px solid rgba(255, 157, 0, 0.1);
+      color: var(--text-main);
+      white-space: nowrap;
+    }
+    tbody tr:hover { background: rgba(255, 157, 0, 0.08); }
+    .highlight-td { color: var(--tva-green); font-weight: bold; text-shadow: 0 0 5px rgba(0, 255, 102, 0.4); }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <div class="tva-badge">TVA MONITORING TERMINAL • DEPT. OF TIME TELEMETRY</div>
+    <h1>SOLAR VISION</h1>
+    <p>Sacred PV Timeline Telemetry Feed • Magelang Sector</p>
+  </div>
+
+  <div class="control-panel">
+    <div>
+      <label for="shadingSelect">VARIANCE LEVEL (SHADING SIMULATION):</label>
+      <select id="shadingSelect" class="select-box" onchange="applyShadingCalculation()">
+        <option value="0">0% (Sacred Timeline - 100% Output)</option>
+        <option value="25">25% Shading (Min Nexus Event - 75% Output)</option>
+        <option value="50">50% Shading (Mid Nexus Event - 50% Output)</option>
+        <option value="75">75% Shading (Critical Branch - 25% Output)</option>
+      </select>
+    </div>
+    <div id="status-indicator" style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--tva-orange);">SYNCHRONIZING TELEMETRY...</div>
+  </div>
+
+  <div class="metrics-grid">
+    <div class="card"><h3>Tegangan (V_PV)</h3><div class="value" id="val-voltase">0.00</div><div class="unit">VOLT</div></div>
+    <div class="card"><h3>Arus (I_PV)</h3><div class="value" id="val-arus">0.000</div><div class="unit">AMPERE</div></div>
+    <div class="card"><h3>Daya (Murni)</h3><div class="value" id="val-dayamurni">0.00</div><div class="unit">WATT</div></div>
+    <div class="card"><h3>Daya (Terkoreksi)</h3><div class="value" id="val-dayakoreksi" style="color: var(--tva-green);">0.00</div><div class="unit">WATT</div></div>
+    <div class="card"><h3>Perf. Ratio (PR)</h3><div class="value" id="val-pr">0.00</div><div class="unit">%</div></div>
+    <div class="card"><h3>Pot. Gen. Fraction</h3><div class="value" id="val-pgf">0.00</div><div class="unit">HOURS</div></div>
+  </div>
+
+  <div class="charts-grid">
+    <div class="chart-box"><canvas id="powerChart"></canvas></div>
+    <div class="chart-box"><canvas id="viChart"></canvas></div>
+  </div>
+
+  <div class="table-container">
+    <div class="table-title">TIMELINE TELEMETRY LOGS <span>[LATEST EVENTS FIRST]</span></div>
+    <table>
+      <thead>
+        <tr>
+          <th>TIMESTAMP (WIB)</th>
+          <th>VOLTAGE (V)</th>
+          <th>CURRENT (A)</th>
+          <th>RAW POWER (W)</th>
+          <th>CORRECTED POWER (W)</th>
+          <th>PR (%)</th>
+          <th>PGF (HOURS)</th>
+        </tr>
+      </thead>
+      <tbody id="table-body">
+        <tr><td colspan="7" style="text-align: center; color: var(--text-dim);">Connecting to TVA Database...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <script>
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw_e5iToAazgel7X1OjneXlDf-LIHog1bXl7tMkw7Kl6ZLQrM77SZOSS4ON-FFr1nEKEg/exec";
+    
+    const P_STC = 10.0; 
+    const H_R = 4.15;   
+    
+    let rawSolarData = []; 
+    let powerChartObj, viChartObj;
+
+    function parseSafeFloat(val) {
+      if (val === undefined || val === null || val === "") return 0.0;
+      let str = String(val).trim();
+      if (str.includes('-') && str.includes('T')) return 0.0;
+      str = str.replace(',', '.');
+      const num = parseFloat(str);
+      return isNaN(num) ? 0.0 : num;
+    }
+
+    function formatTime(ts) {
+      if (!ts) return "-";
+      const d = new Date(ts);
+      if (isNaN(d.getTime())) return String(ts);
+      return d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    }
+
+    function formatDateTime(ts) {
+      if (!ts) return "-";
+      const d = new Date(ts);
+      if (isNaN(d.getTime())) return String(ts);
+      return d.toLocaleString('id-ID', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    }
+
+    async function fetchSolarData() {
+      const statusDiv = document.getElementById("status-indicator");
+      statusDiv.innerText = "SYNCHRONIZING TELEMETRY...";
+      statusDiv.style.color = "var(--tva-orange)";
+
+      try {
+        const response = await fetch(SCRIPT_URL, {
+          method: "GET",
+          redirect: "follow",
+          headers: { "Content-Type": "text/plain;charset=utf-8" }
+        });
+
+        if (!response.ok) throw new Error("Gagal terhubung ke Google Script");
+        
+        const data = await response.json();
+        
+        if (!Array.isArray(data) || data.length === 0) {
+          throw new Error("Data kosong atau format JSON salah");
+        }
+
+        rawSolarData = data.map(item => {
+          let ts, v = 0.0, rawI = 0.0;
+
+          if (Array.isArray(item)) {
+            ts = item[0];
+            v = parseSafeFloat(item[1]);
+            rawI = parseSafeFloat(item[2]);
+          } else if (typeof item === 'object') {
+            ts = item.timestamp || item.waktu || item.date;
+            v = parseSafeFloat(item.voltase !== undefined ? item.voltase : (item.voltage !== undefined ? item.voltage : item.tegangan));
+            rawI = parseSafeFloat(item.arus !== undefined ? item.arus : (item.current !== undefined ? item.i : 0));
+          }
+
+          // SKALA ARUS (* 0.001)
+          const i_real = rawI * 0.001;
+          const p = v * i_real;
+
+          return {
+            timestamp: ts,
+            voltase: v,
+            arus: i_real,
+            daya_murni: p
+          };
+        });
+
+        statusDiv.innerText = "TIMELINE STABLE • LIVE FEED";
+        statusDiv.style.color = "var(--tva-green)";
+
+        applyShadingCalculation();
+
+      } catch (error) {
+        console.error("Fetch Error:", error);
+        statusDiv.innerText = "PRUNED FEED / CONNECTION ERROR";
+        statusDiv.style.color = "#ff3333";
+      }
+    }
+
+    function applyShadingCalculation() {
+      if (rawSolarData.length === 0) return;
+
+      const shadingPercent = parseFloat(document.getElementById('shadingSelect').value);
+      const deratingFactor = 1.0 - (shadingPercent / 100.0);
+
+      const calculatedData = rawSolarData.map(item => {
+        const p_koreksi = item.daya_murni * deratingFactor;
+        const pr_koreksi = (p_koreksi / P_STC) * 100;
+        const pgf_koreksi = (p_koreksi / P_STC) * H_R;
+
+        return {
+          ...item,
+          daya_koreksi: p_koreksi,
+          pr_koreksi: pr_koreksi,
+          pgf_koreksi: pgf_koreksi
+        };
+      });
+
+      const latest = calculatedData[calculatedData.length - 1];
+      document.getElementById('val-voltase').innerText = latest.voltase.toFixed(2);
+      document.getElementById('val-arus').innerText = latest.arus.toFixed(3);
+      document.getElementById('val-dayamurni').innerText = latest.daya_murni.toFixed(2);
+      document.getElementById('val-dayakoreksi').innerText = latest.daya_koreksi.toFixed(2);
+      document.getElementById('val-pr').innerText = latest.pr_koreksi.toFixed(1);
+      document.getElementById('val-pgf').innerText = latest.pgf_koreksi.toFixed(2);
+
+      const chartData = calculatedData.slice(-15);
+      const labels = chartData.map(d => formatTime(d.timestamp));
+      
+      updateCharts(
+        labels, 
+        chartData.map(d => d.daya_koreksi), 
+        chartData.map(d => d.pr_koreksi),
+        chartData.map(d => d.voltase),
+        chartData.map(d => d.arus)
+      );
+
+      renderTable(calculatedData);
+    }
+
+    function renderTable(dataArray) {
+      const tbody = document.getElementById('table-body');
+      tbody.innerHTML = "";
+
+      const reversedData = [...dataArray].reverse();
+
+      reversedData.forEach(row => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${formatDateTime(row.timestamp)}</td>
+          <td>${row.voltase.toFixed(2)}</td>
+          <td>${row.arus.toFixed(3)}</td>
+          <td>${row.daya_murni.toFixed(2)}</td>
+          <td class="highlight-td">${row.daya_koreksi.toFixed(2)}</td>
+          <td>${row.pr_koreksi.toFixed(2)}</td>
+          <td>${row.pgf_koreksi.toFixed(3)}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function updateCharts(labels, pData, prData, vData, iData) {
+      Chart.defaults.color = "#a37538";
+      Chart.defaults.font.family = "'Share Tech Mono', monospace";
+      
+      const gridOptions = { color: 'rgba(255, 157, 0, 0.08)', drawBorder: false };
+
+      if(powerChartObj) powerChartObj.destroy();
+      const ctxPower = document.getElementById('powerChart').getContext('2d');
+      powerChartObj = new Chart(ctxPower, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [
+            {
+              label: 'Daya Terkoreksi (W)',
+              data: pData,
+              borderColor: '#00ff66',
+              backgroundColor: 'rgba(0, 255, 102, 0.1)',
+              borderWidth: 2,
+              tension: 0.2,
+              fill: true,
+              yAxisID: 'y'
+            },
+            {
+              label: 'Performance Ratio (%)',
+              data: prData,
+              borderColor: '#ff9d00',
+              borderWidth: 2,
+              borderDash: [4, 4],
+              tension: 0.2,
+              yAxisID: 'y1'
+            }
+          ]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: { title: { display: true, text: 'POWER & PERFORMANCE RATIO LOG', color: '#ff9d00' } },
+          scales: {
+            x: { grid: { display: false } },
+            y: { type: 'linear', display: true, position: 'left', title: {display: true, text: 'WATT'}, grid: gridOptions },
+            y1: { type: 'linear', display: true, position: 'right', title: {display: true, text: '%'}, grid: {display: false} }
+          }
+        }
+      });
+
+      if(viChartObj) viChartObj.destroy();
+      const ctxVI = document.getElementById('viChart').getContext('2d');
+      viChartObj = new Chart(ctxVI, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [
+            {
+              label: 'Tegangan (V)',
+              data: vData,
+              borderColor: '#ffca80',
+              borderWidth: 2,
+              tension: 0.2,
+              yAxisID: 'y'
+            },
+            {
+              label: 'Arus (A)',
+              data: iData,
+              borderColor: '#ff9d00',
+              backgroundColor: 'rgba(255, 157, 0, 0.1)',
+              borderWidth: 2,
+              tension: 0.2,
+              fill: true,
+              yAxisID: 'y1'
+            }
+          ]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: { title: { display: true, text: 'VOLTAGE & CURRENT LOG', color: '#ff9d00' } },
+          scales: {
+            x: { grid: { display: false } },
+            y: { type: 'linear', display: true, position: 'left', title: {display: true, text: 'VOLT'}, grid: gridOptions },
+            y1: { type: 'linear', display: true, position: 'right', title: {display: true, text: 'AMPERE'}, grid: {display: false} }
+          }
+        }
+      });
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      fetchSolarData();
+      setInterval(fetchSolarData, 15000); 
+    });
+  </script>
+</body>
+</html>
